@@ -7,6 +7,7 @@ import pygame
 import pgzrun
 import random
 import json
+import csv
 
 # Bildschirmeinstellungen
 WIDTH = 1000
@@ -75,13 +76,46 @@ class Button:
         if self.check_hover(pos) and self.action:
             self.action()
 
+# Frage-Klasse zur Repräsentation einzelner Quizfragen
+class Question:
+    def __init__(self, question, correct_answer, wrong_answers):
+        self.question = question
+        self.answers = [correct_answer] + wrong_answers
+        random.shuffle(self.answers)
+        self.correct_index = self.answers.index(correct_answer)
+
+    def is_correct(self, index):
+        return index == self.correct_index
+
+    def get_text(self):
+        return self.question
+
+    def get_answers(self):
+        return self.answers
+
+    def get_correct_index(self):
+        return self.correct_index
+
+# Lädt Fragen aus einer CSV-Datei
+def load_questions_from_csv(path="fragen.csv"):
+    question_list = []
+    with open(path, newline='', encoding='utf-8') as csvfile:
+        reader = csv.DictReader(csvfile)
+        for row in reader:
+            question = row['Frage']
+            correct = row['Richtige']
+            wrong = [row['Antwort1'], row['Antwort2'], row['Antwort3']]
+            question_list.append(Question(question, correct, wrong))
+    return question_list
+
 # Initialisiert alle Spielvariablen
-def init():
+def initialize():
     global current_state, score, current_question, feedback_timer, player_name
     global questions, answer_buttons, highscores
     global pending_score_screen, name_input_focused, cursor_visible, cursor_timer
     global answer_feedback, buttons_locked
 
+    # Zustand und Punkte zurücksetzen
     current_state = MENU
     score = 0
     current_question = 0
@@ -89,7 +123,7 @@ def init():
     player_name = ""
     highscores = []
 
-    # Reset aller Zustandsvariablen
+    # Eingabefeld/Feedback zurücksetzen
     pending_score_screen = False
     name_input_focused = False
     cursor_visible = True
@@ -97,44 +131,37 @@ def init():
     answer_feedback = [-1, -1, -1, -1]
     buttons_locked = False
 
-    # Fragenkatalog
-    questions = [
-        {"question": "Was ist die Hauptstadt von Deutschland?", "answers": ["Berlin", "Paris", "London", "Madrid"], "correct": 0},
-        {"question": "Wie viele Planeten hat unser Sonnensystem?", "answers": ["8", "9", "7", "10"], "correct": 0},
-        {"question": "Welche Farbe hat eine reife Zitrone?", "answers": ["Gelb", "Grün", "Rot", "Blau"], "correct": 0},
-        {"question": "Was ist 2+2?", "answers": ["4", "5", "3", "22"], "correct": 0},
-        {"question": "Welches ist keine Primzahl?", "answers": ["1", "2", "3", "5"], "correct": 0},
-        {"question": "Wie heißt der größte Ozean?", "answers": ["Pazifik", "Atlantik", "Indik", "Arktik"], "correct": 0},
-        {"question": "Welches Tier ist das schnellste Landtier?", "answers": ["Gepard", "Löwe", "Gazelle", "Windhund"], "correct": 0},
-        {"question": "Wie viele Tage hat ein Schaltjahr?", "answers": ["366", "365", "364", "367"], "correct": 0},
-        {"question": "Welches ist keine Programmiersprache?", "answers": ["Kartoffel", "Python", "Java", "C++"], "correct": 0},
-        {"question": "Was misst ein Thermometer?", "answers": ["Temperatur", "Druck", "Feuchtigkeit", "Lautstärke"], "correct": 0}
-    ]
+    # Fragenliste vorbereiten
+    questions = []
 
-    # Antwort-Buttons erstellen
+    # Antwortbuttons generieren
     answer_buttons = []
     for i in range(4):
         answer_buttons.append(Button(WIDTH // 2 - 300, HEIGHT // 2 + i * 70, 600, 60, ""))
 
     load_highscores()
 
-# Initialisiert eine neue Spielrunde
-def init_game():
+# Startet eine neue Spielrunde mit 10 zufälligen Fragen
+def start_new_game():
     global score, current_question, feedback_timer, pending_score_screen
-    global answer_feedback, buttons_locked
+    global answer_feedback, buttons_locked, questions
 
+    # Reset aller Variablen für eine neue Runde
     score = 0
     current_question = 0
     feedback_timer = 0
     pending_score_screen = False
-    random.shuffle(questions)
     answer_feedback = [-1, -1, -1, -1]
     buttons_locked = False
 
-# Startet ein neues Spiel
+    # Zufällig 10 Fragen aus der CSV-Datei laden
+    all_questions = load_questions_from_csv()
+    questions = random.sample(all_questions, 10)
+
+# Startet das Spiel (wechselt zum Spielzustand)
 def start_game():
     global current_state
-    init_game()
+    start_new_game()
     current_state = GAME
 
 # Zeigt die Highscore-Liste an
@@ -142,7 +169,7 @@ def show_highscore():
     global current_state
     current_state = HIGHSCORE
 
-# Beendet das Spiel
+# Beendet das Spiel sauber
 def quit_game():
     pygame.quit()
     quit()
@@ -152,7 +179,7 @@ def back_to_menu():
     global current_state
     current_state = MENU
 
-# Überprüft die angeklickte Antwort
+# Überprüft, ob die angeklickte Antwort richtig ist
 def check_answer(answer_index):
     global score, feedback_timer, current_question, pending_score_screen
     global answer_feedback, buttons_locked
@@ -161,22 +188,24 @@ def check_answer(answer_index):
         return
 
     buttons_locked = True
-    correct = questions[current_question]["correct"]
+    question = questions[current_question]
 
-    # Markiert richtige und falsche Antwort
+    # Feedback vorbereiten (richtig/falsch markieren)
     for i in range(4):
-        if i == correct:
-            answer_feedback[i] = 1  # richtig
+        if i == question.get_correct_index():
+            answer_feedback[i] = 1
         elif i == answer_index:
-            answer_feedback[i] = 0  # falsch
+            answer_feedback[i] = 0
 
-    if answer_index == correct:
+    # Punktevergabe bei richtiger Antwort
+    if question.is_correct(answer_index):
         score += 1
 
-    feedback_timer = 180  # 3 Sekunden Feedback bei 60 FPS
+    feedback_timer = 180  # 3 Sekunden Feedback
 
+    # Prüfen, ob es die letzte Frage war
     if current_question + 1 >= len(questions):
-        pending_score_screen = True # Zeigt den Score nach der letzten Frage an
+        pending_score_screen = True
 
 # Speichert den Score in der Highscore-Liste
 def save_score():
@@ -185,24 +214,24 @@ def save_score():
     if player_name.strip():
         highscores.append({"name": player_name.strip(), "score": score})
         highscores.sort(key=lambda x: x["score"], reverse=True)
-        highscores = highscores[:10]
+        highscores = highscores[:10]  # Nur Top 10 speichern
         save_highscores()
         current_state = HIGHSCORE
 
-# Laden der Highscores aus der .json Datei
+# Lädt Highscores aus JSON-Datei
 def load_highscores():
     global highscores
     if os.path.exists("highscores.json"):
         with open("highscores.json", "r") as f:
             highscores = json.load(f)
 
-# Speichert die Highscores in die .json Datei
+# Speichert Highscores in JSON-Datei
 def save_highscores():
     with open("highscores.json", "w") as f:
         json.dump(highscores, f)
 
-# Spiel initialisieren
-init()
+# Initialisierung beim Start des Spiels
+initialize()
 
 # Hauptmenü-Buttons
 menu_buttons = [
@@ -217,52 +246,38 @@ highscore_buttons = [
     Button(WIDTH // 2 - 150, HEIGHT // 2 + 250, 300, 60, "Hauptmenü", back_to_menu)
 ]
 
-# Zeichnet den aktuellen Zustand
+# Zeichnet den aktuellen Bildschirmzustand
 def draw():
     screen.fill(BACKGROUND)
 
-    # Hauptmenü
     if current_state == MENU:
         screen.draw.text("Guess what?!", center=(WIDTH // 2, HEIGHT // 4), fontsize=60, color=TITLE_COLOR)
         for button in menu_buttons:
             button.draw()
 
-    # Spielansicht
     elif current_state == GAME:
         if current_question < len(questions):
-            # Frage anzeigen
+            question = questions[current_question]
             pygame.draw.rect(screen.surface, QUESTION_COLOR, (50, 100, WIDTH - 100, 100))
-            screen.draw.text(questions[current_question]["question"], center=(WIDTH // 2, 150), fontsize=30, color=TEXT_COLOR, scolor="black")
-            # Antwortmöglichkeiten Anzeigen
+            screen.draw.text(question.get_text(), center=(WIDTH // 2, 150), fontsize=30, color=TEXT_COLOR, scolor="black")
             for i, button in enumerate(answer_buttons):
-                button.text = questions[current_question]["answers"][i]
+                button.text = question.get_answers()[i]
                 button.draw(answer_feedback[i])
-            # Punkte und Fortschritt anzeigen
             screen.draw.text(f"Punkte: {score} | Frage: {current_question + 1}/{len(questions)}", topleft=(20, 20), fontsize=24, color=TEXT_COLOR)
 
-    # Ergebnisanzeige
     elif current_state == SCORE:
         global name_input_focused
         name_input_focused = True
-
         screen.draw.text("Spiel beendet!", center=(WIDTH // 2, HEIGHT // 4), fontsize=60, color=TITLE_COLOR)
         screen.draw.text(f"Dein Score: {score}/{len(questions)}", center=(WIDTH // 2, HEIGHT // 3), fontsize=40, color=TEXT_COLOR)
         screen.draw.text("Gib deinen Namen ein:", center=(WIDTH // 2, HEIGHT // 2), fontsize=30, color=TEXT_COLOR)
-
-        # Name-Eingabefeld
         pygame.draw.rect(screen.surface, BUTTON_COLOR, (WIDTH // 2 - 150, HEIGHT // 2 + 30, 300, 50))
         name_display = player_name + ("|" if name_input_focused and cursor_visible else "")
-        # Blinkender Cursor
         screen.draw.text(name_display, center=(WIDTH // 2, HEIGHT // 2 + 55), fontsize=30, color=TEXT_COLOR)
-
-        # Speichern-Button
         Button(WIDTH // 2 - 100, HEIGHT // 2 + 100, 200, 50, "Speichern", save_score).draw()
-
-        # Warnung wenn Name leer ist
         if not player_name.strip():
             screen.draw.text("Bitte gib einen Namen ein!", center=(WIDTH // 2, HEIGHT // 2 + 170), fontsize=20, color=WRONG_COLOR)
 
-    # Highscore-Liste anzeigen
     elif current_state == HIGHSCORE:
         screen.draw.text("Highscores", center=(WIDTH // 2, 50), fontsize=60, color=TITLE_COLOR)
         for i, entry in enumerate(highscores[:10]):
@@ -270,10 +285,9 @@ def draw():
         for button in highscore_buttons:
             button.draw()
 
-# Behandelt Tastatureingaben
+# Tastatureingaben behandeln (für Namenseingabe)
 def on_key_down(key):
     global player_name
-
     if current_state == SCORE and name_input_focused:
         if key == pygame.K_BACKSPACE:
             player_name = player_name[:-1]
@@ -284,7 +298,7 @@ def on_key_down(key):
             if len(key_char) == 1:
                 player_name += key_char
 
-# Behandelt Mausbewegungen für Hover-Effekte
+# Mausbewegung behandeln (Hover-Effekte)
 def on_mouse_move(pos):
     buttons = []
     if current_state == MENU:
@@ -293,14 +307,12 @@ def on_mouse_move(pos):
         buttons = answer_buttons
     elif current_state == HIGHSCORE:
         buttons = highscore_buttons
-
     for button in buttons:
         button.check_hover(pos)
 
-# Behandelt Mausklicks
+# Mausklicks behandeln
 def on_mouse_down(pos):
     global name_input_focused
-
     if current_state == MENU:
         for button in menu_buttons:
             button.handle_click(pos)
@@ -309,42 +321,37 @@ def on_mouse_down(pos):
             for i, button in enumerate(answer_buttons):
                 if button.check_hover(pos):
                     check_answer(i)
-    # Name-Eingabefeld auswählen
     elif current_state == SCORE:
         if WIDTH // 2 - 150 <= pos[0] <= WIDTH // 2 + 150 and HEIGHT // 2 + 30 <= pos[1] <= HEIGHT // 2 + 80:
             name_input_focused = True
         else:
             name_input_focused = False
-
-        # Speichern-Button
         if WIDTH // 2 - 100 <= pos[0] <= WIDTH // 2 + 100 and HEIGHT // 2 + 100 <= pos[1] <= HEIGHT // 2 + 150:
             save_score()
     elif current_state == HIGHSCORE:
         for button in highscore_buttons:
             button.handle_click(pos)
 
-# Aktualisiert den Spielzustand (wird regelmäßig aufgerufen)
+# Spielstatus regelmäßig aktualisieren
 def update():
     global feedback_timer, current_state, pending_score_screen
     global cursor_timer, cursor_visible
     global answer_feedback, buttons_locked, current_question
 
-    # Feedback-Timer
     if feedback_timer > 0:
         feedback_timer -= 1
-    elif pending_score_screen:      # Nach letzter Frage
+    elif pending_score_screen:
         current_state = SCORE
         pending_score_screen = False
-    elif buttons_locked:            # Feedback vorbei
+    elif buttons_locked:
         buttons_locked = False
-        answer_feedback = [-1, -1, -1, -1]      # Resettet Feedback
-        current_question += 1       # Nächste Frage
+        answer_feedback = [-1, -1, -1, -1]
+        current_question += 1
 
-    # Cursor-Blinken beim Namen Eingeben
     cursor_timer += 1
     if cursor_timer >= 30:
         cursor_visible = not cursor_visible
         cursor_timer = 0
 
-# Startet Spiel
+# Spiel starten
 pgzrun.go()
