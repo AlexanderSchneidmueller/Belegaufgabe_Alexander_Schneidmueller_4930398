@@ -6,7 +6,7 @@ Welche Farbe hat eine reife Banane?,Gelb,Grün,Rot,Blau
 Wie viele Kontinente gibt es?,7,6,5,8
 Welcher Planet ist der Sonne am nächsten?,Merkur,Venus,Mars,Erde
 Was ist das chemische Symbol für Wasser?,H2O,CO2,O2,N2
-Wie nennt man ein Tier, das Pflanzen frisst?,Herbivore,Karnivore,Omnivore,Insektivore
+Wie nennt man ein Tier das Pflanzen frisst?,Herbivore,Karnivore,Omnivore,Insektivore
 Wie heißt der höchste Berg der Welt?,Mount Everest,K2,Mont Blanc,Elbrus
 Was ist 5 × 6?,30,25,20,36
 Welches Tier bellt?,Hund,Katze,Pferd,Schwein
@@ -153,7 +153,6 @@ Was ist die Hauptstadt von Monaco?,Monaco-Ville,Monte-Carlo,La Condamine,Fontvie
 Welcher Planet ist nach dem römischen Gott der Unterwelt benannt?,Pluto,Saturn,Neptun,Jupiter
 Was ist die Hauptstadt von San Marino?,San Marino,Borgo Maggiore,Serravalle,Domagnano
 Wie viele Planeten haben eine exzentrische Umlaufbahn?,1,2,0,3
-Was ist die Hauptstadt des Vatikans?,Vatikanstadt,-,-,-
 Welcher Planet hat die meisten bekannten Monde?,Jupiter,Saturn,Uranus,Neptun
 Was ist die Hauptstadt von Kasachstan?,Nur-Sultan,Almaty,Schymkent,Qaraghandy
 Wie viele Planeten haben eine retrograde Rotation?,1,2,0,3
